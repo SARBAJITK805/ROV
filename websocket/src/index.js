@@ -1,10 +1,8 @@
-import http from 'http';
 import { WebSocketServer } from 'ws';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../../backend/src/db.js';
 
-const server = http.createServer();
-const wss = new WebSocketServer({ server });
-const prisma = new PrismaClient();
+
+const wss = new WebSocketServer({ port :8000 });
 
 const connectedClients = new Set();
 const clientTypes = new Map(); // Track client types (rover/app)
@@ -226,7 +224,8 @@ wss.on('connection', (ws) => {
 // Helper function to broadcast messages to specific client types
 function broadcastToClients(clientType, message) {
     const messageStr = JSON.stringify(message);
-
+    console.log(messageStr);
+    
     connectedClients.forEach((client) => {
         if (client.readyState === client.OPEN && clientTypes.get(client) === clientType) {
             client.send(messageStr);
@@ -234,25 +233,7 @@ function broadcastToClients(clientType, message) {
     });
 }
 
-// Health check endpoint
-server.on('request', (req, res) => {
-    if (req.url === '/health') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({
-            status: 'healthy',
-            connectedClients: connectedClients.size,
-            timestamp: new Date().toISOString()
-        }));
-    } else {
-        res.writeHead(404);
-        res.end('Not Found');
-    }
-});
 
-server.listen(3001, () => {
-    console.log('WebSocket server running on ws://localhost:3001');
-    console.log('Health check available at http://localhost:3001/health');
-});
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
@@ -267,12 +248,6 @@ process.on('SIGTERM', async () => {
 
     // Close Prisma connection
     await prisma.$disconnect();
-
-    // Close server
-    server.close(() => {
-        console.log('Server closed');
-        process.exit(0);
-    });
 });
 
 process.on('SIGINT', async () => {
@@ -287,10 +262,4 @@ process.on('SIGINT', async () => {
 
     // Close Prisma connection
     await prisma.$disconnect();
-
-    // Close server
-    server.close(() => {
-        console.log('Server closed');
-        process.exit(0);
-    });
 });

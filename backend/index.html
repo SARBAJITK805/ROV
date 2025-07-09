@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sensor Data Graph</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <h2>Sensor Data Graphs</h2>
+
+    <!-- 🔥 Add Date/Time Filter Form -->
+    <form method="get" action="/">
+        <label>Start Time:
+            <input type="datetime-local" name="start" value="{{ start or '' }}">
+        </label>
+        <label>End Time:
+            <input type="datetime-local" name="end" value="{{ end or '' }}">
+        </label>
+        <button type="submit">Filter</button>
+    </form>
+
+    <canvas id="tdsChart" width="600" height="200"></canvas>
+    <canvas id="turbidityChart" width="600" height="200"></canvas>
+    <canvas id="phChart" width="600" height="200"></canvas>
+
+    <script>
+        const dataFromFlask = {{ data|tojson }};
+        const labels = dataFromFlask.map(item => item.timestamp).reverse();
+        const tdsData = dataFromFlask.map(item => item.tdsvalue).reverse();
+        const turbidityData = dataFromFlask.map(item => item.turbidityvalue).reverse();
+        const phData = dataFromFlask.map(item => item.phvalue).reverse();
+
+        const TDS_THRESHOLD = 700;
+        const TURBIDITY_THRESHOLD = 1200;
+        const PH_MIN = 5.80;
+        const PH_MAX = 5.60;
+
+        // 🔥 Store chart instances
+        let tdsChartInstance, turbidityChartInstance, phChartInstance;
+
+        function markThresholdViolations(data, threshold, comparator) {
+            return data.map(value => comparator(value, threshold) ? 'red' : 'rgba(0,0,0,0)');
+        }
+
+        function createChart(canvasId, label, data, color, thresholdLine = null, highlightFn = null) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+
+            // 🔥 Destroy existing chart if exists
+            if (Chart.getChart(canvasId)) {
+                Chart.getChart(canvasId).destroy();
+            }
+
+            const dataset = {
+                label: label,
+                data: data,
+                borderColor: color,
+                borderWidth: 2,
+                fill: false,
+                tension: 0.3,
+                pointBackgroundColor: highlightFn ? highlightFn(data) : color
+            };
+
+            const plugins = [];
+            if (thresholdLine !== null) {
+                plugins.push({
+                    id: 'thresholdLine',
+                    beforeDraw: chart => {
+                        const yScale = chart.scales.y;
+                        const ctx = chart.ctx;
+                        const y = yScale.getPixelForValue(thresholdLine.value);
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.moveTo(chart.chartArea.left, y);
+                        ctx.lineTo(chart.chartArea.right, y);
+                        ctx.strokeStyle = thresholdLine.color;
+                        ctx.lineWidth = 1;
+                        ctx.setLineDash([5, 5]);
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                });
+            }
+
+            const minY = Math.min(...data);
+            const maxY = Math.max(...data);
+            const margin = (maxY - minY) * 0.3 || 1;
+
+            const chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [dataset]
+                },
+                options: {
+                    plugins: {
+                        legend: { display: true }
+                    },
+                    scales: {
+                        x: { title: { display: true, text: 'Timestamp' } },
+                        y: { min: minY - margin, max: maxY + margin }
+                    }
+                },
+                plugins: plugins
+            });
+
+            return chartInstance;
+        }
+
+        // 🔥 Create/refresh charts
+        tdsChartInstance = createChart(
+            "tdsChart",
+            "TDS Value",
+            tdsData,
+            "blue",
+            { value: TDS_THRESHOLD, color: "red" },
+            (data) => markThresholdViolations(data, TDS_THRESHOLD, (v, t) => v > t)
+        );
+
+        turbidityChartInstance = createChart(
+            "turbidityChart",
+            "Turbidity Value",
+            turbidityData,
+            "green",
+            { value: TURBIDITY_THRESHOLD, color: "orange" },
+            (data) => markThresholdViolations(data, TURBIDITY_THRESHOLD, (v, t) => v > t)
+        );
+
+        phChartInstance = createChart(
+            "phChart",
+            "pH Value",
+            phData,
+            "yellow",
+            null,
+            (data) => data.map(v => (v < PH_MIN || v > PH_MAX) ? 'red' : 'rgba(0,0,0,0)')
+        );
+    </script>
+</body>
+</html>

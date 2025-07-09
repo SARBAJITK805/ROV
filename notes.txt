@@ -1,0 +1,21 @@
+For Rover Client:
+
+// Initialize camera
+{ type: "camera", client: "rover", action: "init" }
+
+// Send frame data
+{ type: "camera", client: "rover", action: "frame", data: "base64_image_data", timestamp: 1234567890 }
+
+// Report error
+{ type: "camera", client: "rover", action: "error", message: "Camera not available" }
+
+For App Client:
+
+// Start video stream
+{ type: "camera", client: "app", action: "start", quality: "high", fps: 15 }
+
+// Stop video stream
+{ type: "camera", client: "app", action: "stop" }
+
+// Capture single frame
+{ type: "camera", client: "app", action: "capture", requestId: "unique_id" }

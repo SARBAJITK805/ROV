@@ -2,7 +2,10 @@ import { WebSocketServer } from 'ws';
 import { prisma } from '../../backend/src/db.js';
 
 
-const wss = new WebSocketServer({ port :8000 });
+const wss = new WebSocketServer({
+    host: '0.0.0.0',
+    port: 8000
+});
 
 const connectedClients = new Set();
 const clientTypes = new Map(); // Track client types (rover/app)
@@ -107,6 +110,16 @@ wss.on('connection', (ws) => {
                     })
                 );
             }
+
+            //<---------------------------------------------------------->
+            if (direction == "up") {
+                broadcastToAll(JSON.stringify({ "led": 1 }))
+                return ws.send(JSON.stringify({ "led": 1 }))
+            } else if (direction == "down") {
+                broadcastToAll(JSON.stringify({ "led": 0 }))
+                return ws.send(JSON.stringify({ "led": 0 }))
+            }
+            //<---------------------------------------------------------->
 
             // Send movement command to rovers only
             broadcastToClients('rover', {
@@ -225,14 +238,24 @@ wss.on('connection', (ws) => {
 function broadcastToClients(clientType, message) {
     const messageStr = JSON.stringify(message);
     console.log(messageStr);
-    
+
     connectedClients.forEach((client) => {
         if (client.readyState === client.OPEN && clientTypes.get(client) === clientType) {
+            //console.log(messageStr);
             client.send(messageStr);
         }
     });
 }
 
+// Helper function to broadcast messages to all client types
+function broadcastToAll(message) {
+    const messageStr = message;
+    connectedClients.forEach((client) => {
+        if (client.readyState === client.OPEN) {
+            client.send(messageStr);
+        }
+    });
+}
 
 
 // Graceful shutdown

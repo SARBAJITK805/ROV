@@ -12,5 +12,5 @@ model SensorData{
   tdsvalue Int
   turbidityvalue Int
   phvalue Int
-  timestamp      DateTime @default(now())
+  timestamp  DateTime @default(now())
 }

@@ -60,23 +60,28 @@ wss.on('connection', (ws) => {
                     typeof turbidityvalue === 'number' &&
                     typeof phvalue === 'number'
                 ) {
-                    const newEntry = await prisma.sensorData.create({
-                        data: { tdsvalue, turbidityvalue, phvalue },
-                    });
+                    try {
+                        const newEntry = await prisma.sensorData.create({
+                            data: { tdsvalue, turbidityvalue, phvalue },
+                        });
 
-                    ws.send(
-                        JSON.stringify({
-                            status: 'Success',
-                            message: 'Data inserted successfully',
-                            data: newEntry,
-                        })
-                    );
+                        ws.send(
+                            JSON.stringify({
+                                status: 'Success',
+                                message: 'Data inserted successfully',
+                                data: newEntry,
+                            })
+                        );
 
-                    // Broadcast sensor data to all app clients
-                    broadcastToClients('app', {
-                        type: 'sensor_data',
-                        data: newEntry
-                    });
+                        // Broadcast sensor data to all app clients
+                        broadcastToClients('app', {
+                            type: 'sensor_data',
+                            data: newEntry
+                        });
+                    }
+                    catch (error) {
+                        console.log(error);
+                    }
                 } else {
                     ws.send(
                         JSON.stringify({
